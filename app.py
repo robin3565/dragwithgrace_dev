@@ -21,6 +21,7 @@ def parse_coupang(text):
     lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
     products = []
     i = 0
+
     while i < len(lines):
         line = lines[i]
         has_next = i + 1 < len(lines)
@@ -32,6 +33,7 @@ def parse_coupang(text):
         if is_potential_product:
             name = line
             total_price = 0
+
             for offset in range(1, 10):
                 if i+offset < len(lines):
                     clean_line = lines[i+offset].replace('badge', '').replace('coupon', '')
@@ -69,9 +71,32 @@ def parse_coupang(text):
                 'G2B분류번호': "",
                 'G2B물품코드': "",
             })
+
             i += 7
         else:
             i += 1
+
+    # ✅ 배송비 추출
+    shipping_fee = 0
+    for line in reversed(lines):
+        match_fee = re.search(r'배송비\s*\+?\s*([\d,]+)원', line)
+        if match_fee:
+            shipping_fee = int(match_fee.group(1).replace(',', ''))
+            break
+
+    if shipping_fee > 0:
+        products.append({
+            '품명': "배송비",
+            '규격': "",
+            '수량': 1,
+            '단위': "건",
+            '단가': shipping_fee,
+            '금액': shipping_fee,
+            '품의상세유형': "",
+            '직책급': "",
+            'G2B분류번호': "",
+            'G2B물품코드': "",
+        })
 
     return pd.DataFrame(products)
 
