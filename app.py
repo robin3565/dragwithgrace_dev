@@ -4,8 +4,18 @@ import re
 import io
 
 # 페이지 설정 (제목, 넓은 레이아웃 사용)
-st.set_page_config(page_title="장바구니 파서", layout="wide")
-st.title("🛒 장바구니 파서")
+st.set_page_config(page_title="🛒품의있는 드래그", layout="wide")
+
+# col1, col2 = st.columns([6, 1])
+# with col2:
+#     st.image("logo.png", width=150)
+st.title("🛒품의있는 드래그")
+st.markdown("""
+    - 장바구니 내용을 드래그(복사)+붙여넣기 하고 아래 버튼을 클릭해보세요.
+    - 지출품의 양식서가 엑셀로 추출됩니다.
+    - 현재 쿠팡, 아이스크림몰 데이터를 지원합니다. (추가 예정)
+    """)
+# st.badge("장바구니 드래그(복사+붙여넣기) 한 번으로 품의 양식서 추출하기!")
 
 # ✅ 세션 상태 초기화 (처음 실행 시)
 if "text_input" not in st.session_state:
@@ -233,3 +243,15 @@ if st.button("🚀 변환 시작"):
                 file_name=f"{site}_장바구니.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
+
+# ✅ Footer 추가
+st.markdown(
+    """
+    <hr style="margin-top: 3em;">
+    <div style='text-align: center; font-size: 0.9em; color: gray;'>
+        ⓒ 2025 전라남도교육청 미래교육과. All rights reserved. | <a href="mailto:yuseoni@korea.kr">Contact</a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
