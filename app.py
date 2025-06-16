@@ -16,7 +16,15 @@ with col1:
     unsafe_allow_html=True
 )
 with col2:
-    st.image("img/logo.png", width=150)
+    st.markdown(
+    """
+    <a href="https://jne.go.kr" target="_blank">
+        <img src="https://raw.githubusercontent.com/knews2/dragwithgrace/main/img/logo.png" width="150" style="float: right;" />
+    </a>
+    """,
+    unsafe_allow_html=True
+)
+
     
 st.markdown(
     """
