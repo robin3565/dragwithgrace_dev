@@ -3,18 +3,32 @@ import pandas as pd
 import re
 import io
 
+
 # 페이지 설정 (제목, 넓은 레이아웃 사용)
 st.set_page_config(page_title="🛒품의있는 드래그", layout="wide")
 
-# col1, col2 = st.columns([6, 1])
-# with col2:
-#     st.image("logo.png", width=150)
-st.title("🛒품의있는 드래그")
-st.markdown("""
-    - 장바구니 내용을 드래그(복사)+붙여넣기 하고 아래 버튼을 클릭해보세요.
-    - 지출품의 양식서가 엑셀로 추출됩니다.
-    - 현재 쿠팡, 아이스크림몰 데이터를 지원합니다. (추가 예정)
-    """)
+col1, col2 = st.columns([8, 1])
+with col1:
+    st.markdown(
+    """
+    <h1 style='cursor: pointer; color: charcoal;' onclick="windows.location.reload()">🛒 품의있는 드래그</h1>
+    """,
+    unsafe_allow_html=True
+)
+with col2:
+    st.image("img/logo.png", width=150)
+    
+st.markdown(
+    """
+    <div style='line-height: 1.8; font-size: 1rem; margin-bottom: 10px;'>
+        • 장바구니 내용을 드래그(복사)+붙여넣기 하고 아래 버튼을 클릭하면, 지출품의 양식서가 엑셀로 추출됩니다.<br>
+        • 현재 <strong>쿠팡</strong>, <strong>아이스크림몰</strong> 사이트만 지원합니다.<br>
+        • 문의사항은 <a href="mailto:yuseoni@korea.kr">yuseoni@korea.kr</a> 로 주세요.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
 # st.badge("장바구니 드래그(복사+붙여넣기) 한 번으로 품의 양식서 추출하기!")
 
 # ✅ 세션 상태 초기화 (처음 실행 시)
@@ -225,7 +239,7 @@ if st.button("🚀 변환 시작"):
             st.error("❌ 추출된 데이터가 없습니다. 입력한 텍스트 및 선택한 사이트를 다시 확인해 주세요.")
         else:
             st.success(f"✅ [{site}] 데이터 변환 완료!")
-            st.subheader("📋 파싱 결과")
+            st.subheader("📋 품의서 추출 결과")
 
             # ✅ Streamlit에서 1번부터 인덱스 보이도록
             df.index = df.index + 1
@@ -240,7 +254,7 @@ if st.button("🚀 변환 시작"):
             st.download_button(
                 label="💾 Excel 파일 다운로드",
                 data=towrite,
-                file_name=f"{site}_장바구니.xlsx",
+                file_name=f"{site}_품의업로드양식.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
