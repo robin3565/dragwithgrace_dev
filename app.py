@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 import io
-
+import numpy as np
 
 # 페이지 설정 (제목, 넓은 레이아웃 사용)
 st.set_page_config(page_title="🛒품의있는 드래그", layout="wide")
@@ -11,7 +11,7 @@ col1, col2 = st.columns([8, 1])
 with col1:
     st.markdown(
     """
-    <h1 style='cursor: pointer; color: charcoal;' onclick="windows.location.reload()">🛒 품의있는 드래그</h1>
+    <h1 style='cursor: pointer; color: charcoal;' onclick="window.location.reload()">🛒 품의있는 드래그</h1>
     """,
     unsafe_allow_html=True
 )
@@ -20,9 +20,9 @@ with col2:
     
 st.markdown(
     """
-    <div style='line-height: 1.8; font-size: 1rem; margin-bottom: 10px;'>
+    <div style='line-height: 1.8; font-size: 1rem; margin-bottom: 15px;'>
         • 장바구니 내용을 드래그(복사)+붙여넣기 하고 아래 버튼을 클릭하면, 지출품의 양식서가 엑셀로 추출됩니다.<br>
-        • 현재 <strong>쿠팡</strong>, <strong>아이스크림몰</strong> 사이트만 지원합니다.<br>
+        • 현재 <strong>쿠팡</strong>, <strong>아이스크림몰</strong>, <strong>G마켓</strong> 사이트만 지원합니다.<br>
         • 문의사항은 <a href="mailto:yuseoni@korea.kr">yuseoni@korea.kr</a> 로 주세요.
     </div>
     """,
@@ -35,10 +35,10 @@ st.markdown(
 if "text_input" not in st.session_state:
     st.session_state.text_input = ""
 if "last_site" not in st.session_state:
-    st.session_state.last_site = "쿠팡"
+    st.session_state.last_site = "🚀 쿠팡"
 
 # ✅ 1. 사이트 선택
-site = st.selectbox("🔍 데이터를 추출할 사이트를 선택하세요", ["쿠팡", "아이스크림몰"])
+site = st.selectbox("1️⃣ 데이터를 추출할 사이트를 선택하세요", ["🚀 쿠팡", "🍦 아이스크림몰", "✅ G마켓"])
 
 # ✅ 사이트가 바뀌었으면 text 초기화
 if site != st.session_state.last_site:
@@ -47,9 +47,9 @@ if site != st.session_state.last_site:
 
 # ✅ 2. 텍스트 입력
 text = st.text_area(
-    """👇 선택한 사이트에서 복사한 텍스트를 여기에 붙여넣으세요
+    """2️⃣ 선택한 사이트에서 복사한 텍스트를 여기에 붙여넣으세요
 (Ctrl+A → Ctrl+C 하면 전체 선택 복사됩니다!)""",
-    height=300,
+    height=270,
     key="text_input"
 )
 
@@ -220,17 +220,114 @@ def parse_icecream(text):
 
     return pd.DataFrame(products)
 
+def parse_gmarket(text: str) -> pd.DataFrame:
+    lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
+    products = []
+    i = 0
+    total_delivery_price = 0
 
+    while i < len(lines):
+        if lines[i].startswith("상품명:") and i + 1 < len(lines):
+            name = lines[i + 1].strip()
+            quantity = 1
+            total_price = 0
+            discount = 0
+            order_price = 0
+            delivery_price = 0
+
+            # 수량 찾기
+            for j in range(i + 2, i + 10):
+                if j < len(lines) and re.fullmatch(r'\d+', lines[j]):
+                    quantity = int(lines[j])
+                    break
+
+            # 금액 관련 정보 파싱
+            for j in range(i, min(i + 20, len(lines))):
+                # 상품 금액 패턴 예시: "상품 금액 :25,000원상품 삭제"
+                if "상품 금액" in lines[j]:
+                    if '삭제' in lines[j]:
+                        match = re.search(r'상품 금액\s*[:：]\s*([\d,]+)원', lines[j])
+                        if match:
+                            total_price = int(match.group(1).replace(",", ""))
+                    elif j + 1 < len(lines):
+                        match = re.search(r'([\d,]+)원', lines[j + 1])
+                        if match:
+                            total_price = int(match.group(1).replace(",", ""))
+
+                if "할인" in lines[j]:
+                    match = re.search(r'([\d,]+)원', lines[j])
+                    if match:
+                        discount = int(match.group(1).replace(",", ""))
+                        print('discount', discount)
+
+                if "주문금액" in lines[j]:
+                    match = re.search(r'([\d,]+)원', lines[j])
+                    if match:
+                        order_price = int(match.group(1).replace(",", ""))
+
+                if "배송비" in lines[j] and j + 1 < len(lines):
+                    if "무료배송" in lines[j + 1]:
+                        delivery_price = 0
+                    else:
+                        match = re.search(r'([\d,]+)원', lines[j + 1])
+                        if match:
+                            delivery_price = int(match.group(1).replace(',', ''))
+
+                # if "배송비" in lines[j] and "무료배송" not in lines[j] and "이상" not in lines[j]:
+                #     match = re.search(r'([\d,]+)원', lines[j])
+                #     if match:
+                #         delivery_price = int(match.group(1).replace(',', ''))
+
+            final_price = order_price if discount > 0 else total_price
+            unit_price = final_price // quantity if quantity else 0
+
+            products.append({
+                "품명": name,
+                "규격": "",
+                "수량": quantity,
+                "단위": "개",
+                "단가": unit_price,
+                "금액": final_price,
+                "품의상세유형": "",
+                "직책급": "",
+                "G2B분류번호": "",
+                "G2B물품코드": "",
+            })
+
+            if delivery_price > 0:
+                total_delivery_price += delivery_price
+            i += 20
+        else:
+            i += 1
+
+    if total_delivery_price > 0:
+        products.append({
+            "품명": "총 배송비",
+            "규격": "",
+            "수량": 1,
+            "단위": "건",
+            "단가": total_delivery_price,
+            "금액": total_delivery_price,
+            "품의상세유형": "",
+            "직책급": "",
+            "G2B분류번호": "",
+            "G2B물품코드": "",
+        })
+    return pd.DataFrame(products)
+
+    
 # ✅ 5. 버튼 클릭 시 파싱 실행
-if st.button("🚀 변환 시작"):
+if st.button("✨ 변환 시작"):
     if not text.strip():
         st.warning("⚠️ 텍스트를 입력해 주세요.")
     else:
         with st.spinner("🧠 데이터를 분석 중입니다..."):
-            if site == "쿠팡":
+            if site == "🚀 쿠팡":
                 df = parse_coupang(text)
-            elif site == "아이스크림몰":
+            elif site == "🍦 아이스크림몰":
                 df = parse_icecream(text)
+            elif site == "✅ G마켓":
+                df = parse_gmarket(text)
             else:
                 df = pd.DataFrame()
 
@@ -238,12 +335,28 @@ if st.button("🚀 변환 시작"):
         if df.empty:
             st.error("❌ 추출된 데이터가 없습니다. 입력한 텍스트 및 선택한 사이트를 다시 확인해 주세요.")
         else:
-            st.success(f"✅ [{site}] 데이터 변환 완료!")
+            st.success(f"[{site}] 데이터 변환 완료!")
             st.subheader("📋 품의서 추출 결과")
 
             # ✅ Streamlit에서 1번부터 인덱스 보이도록
             df.index = df.index + 1
-            st.dataframe(df)
+            
+            # 총합 계산 (금액만)
+            total_row = df[["금액"]].sum().to_dict()
+            total_row.update({
+                '품명': '총 합계',
+                '규격': '',
+                '수량': np.nan,  # <- 빈 문자열 대신 np.nan 사용
+                '단위': '',
+                '품의상세유형': '',
+                '직책급': '',
+                'G2B분류번호': '',
+                'G2B물품코드': ''
+            })
+
+            # 화면 출력용 DataFrame (총합 포함)
+            df_view = pd.concat([df, pd.DataFrame([total_row])], ignore_index=True)
+            st.dataframe(df_view.style.format({'수량': '{:,.0f}', '단가': '{:,.0f}', '금액': '{:,.0f}'}))
 
             # ✅ Excel 다운로드 처리
             towrite = io.BytesIO()
