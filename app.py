@@ -22,7 +22,7 @@ st.markdown(
     """
     <div style='line-height: 1.8; font-size: 1rem; margin-bottom: 15px;'>
         • 장바구니 내용을 드래그(복사)+붙여넣기 하고 아래 버튼을 클릭하면, 지출품의 양식서가 엑셀로 추출됩니다.<br>
-        • 현재 <strong>쿠팡</strong>, <strong>아이스크림몰</strong>, <strong>G마켓</strong> 사이트만 지원합니다.<br>
+        • 현재 <strong>쿠팡</strong>, <strong>아이스크림몰</strong>, <strong>G마켓</strong>, <strong>레드포인트</strong> 사이트만 지원합니다.<br>
         • 문의사항은 <a href="mailto:yuseoni@korea.kr">yuseoni@korea.kr</a> 로 주세요.
     </div>
     """,
@@ -38,7 +38,7 @@ if "last_site" not in st.session_state:
     st.session_state.last_site = "🚀 쿠팡"
 
 # ✅ 1. 사이트 선택
-site = st.selectbox("1️⃣ 데이터를 추출할 사이트를 선택하세요.", ["🚀 쿠팡", "🍦 아이스크림몰", "✅ G마켓"])
+site = st.selectbox("1️⃣ 데이터를 추출할 사이트를 선택하세요.", ["🚀 쿠팡", "🍦 아이스크림몰", "✅ G마켓", "레드포인트"])
 
 # ✅ 사이트가 바뀌었으면 text 초기화
 if site != st.session_state.last_site:
@@ -54,7 +54,7 @@ text = st.text_area(
 )
 
 
-# 🧠 3. 쿠팡 텍스트 파싱 함수
+# 🧠 3-1. 쿠팡 텍스트 파싱 함수
 def parse_coupang(text):
     lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
     products = []
@@ -146,7 +146,7 @@ def parse_coupang(text):
     return pd.DataFrame(products)
 
 
-# ✅ 4. 아이스크림몰 텍스트 파싱 함수
+# ✅ 3-2. 아이스크림몰 텍스트 파싱 함수
 def parse_icecream(text):
     lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
     products = []
@@ -220,6 +220,7 @@ def parse_icecream(text):
 
     return pd.DataFrame(products)
 
+# ✅ 3-3. G마켓 텍스트 파싱 함수
 def parse_gmarket(text: str) -> pd.DataFrame:
     lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
     products = []
@@ -316,6 +317,93 @@ def parse_gmarket(text: str) -> pd.DataFrame:
     return pd.DataFrame(products)
 
     
+# ✅ 3-4. 레드포인트 텍스트 파싱 함수
+def parse_redpoint(text: str) -> pd.DataFrame:
+    def is_valid_product_name(line):
+        # 상품명이 아닌 단어들을 필터링
+        blocked_keywords = ['무료', '조건', '이미지', '배송', '삭제', '장바구니', '쿠폰', '총 상품금액', '수량', '할인금액', '적립금']
+        if any(keyword in line for keyword in blocked_keywords):
+            return False
+        if re.search(r'\d+원', line):  # 가격 정보 포함된 줄 제외
+            return False
+        if len(line.strip()) < 4:
+            return False
+        return True
+
+    lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
+    products = []
+    i = 0
+    total_shipping = 0
+
+    while i < len(lines):
+        # 유효한 상품명 조건 만족
+        if is_valid_product_name(lines[i]):
+            name = lines[i].split('\t')[0] if '\t' in lines[i] else lines[i]
+            quantity = 1
+            unit_price = 0
+            total_price = 0
+            delivery_price = 0
+            discount = 0
+
+            # 수량과 금액 정보 탐색 (다음 10줄 안에서)
+            for j in range(i+1, min(i+10, len(lines))):
+                # 수량: 순수 숫자 줄
+                if re.fullmatch(r'\d+', lines[j]):
+                    quantity = int(lines[j])
+                # 금액: 예) "4,500원"
+                if re.search(r'\d{1,3}(?:,\d{3})*원', lines[j]):
+                    match = re.search(r'([\d,]+)원', lines[j])
+                    if match:
+                        total_price = int(match.group(1).replace(',', ''))
+
+                # 배송비: 예) "3,000원", "무료"
+                if "배송" in lines[j]:
+                    if '무료' in lines[j]:
+                        delivery_price = 0
+                    else:
+                        match = re.search(r'([\d,]+)원', lines[j])
+                        if match:
+                            delivery_price = int(match.group(1).replace(',', ''))
+
+            unit_price = total_price // quantity if quantity else 0
+            final_price = total_price
+
+            products.append({
+                '품명': name,
+                '규격': '',
+                '수량': quantity,
+                '단위': '개',
+                '단가': unit_price,
+                '금액': final_price,
+                '품의상세유형': '',
+                '직책급': '',
+                'G2B분류번호': '',
+                'G2B물품코드': ''
+            })
+
+            total_shipping += delivery_price
+            i += 10  # 다음 상품으로 이동
+        else:
+            i += 1
+
+    # 배송비 별도 추가
+    if total_shipping > 0:
+        products.append({
+            '품명': '배송비',
+            '규격': '',
+            '수량': 1,
+            '단위': '건',
+            '단가': total_shipping,
+            '금액': total_shipping,
+            '품의상세유형': '',
+            '직책급': '',
+            'G2B분류번호': '',
+            'G2B물품코드': ''
+        })
+
+    return pd.DataFrame(products)
+
+
 # ✅ 5. 버튼 클릭 시 파싱 실행
 if st.button("✨ 변환 시작"):
     if not text.strip():
@@ -328,6 +416,8 @@ if st.button("✨ 변환 시작"):
                 df = parse_icecream(text)
             elif site == "✅ G마켓":
                 df = parse_gmarket(text)
+            elif site == "레드포인트":
+                df = parse_redpoint(text)
             else:
                 df = pd.DataFrame()
 
